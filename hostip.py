@@ -7,7 +7,7 @@ import smbus
 
 cmd = "hostname -I"		# 	Linux command to get IP addres
 i2caddr = 0x5A			# 	Address must correspond with shop_ip.c's address #7 bit address (will be left shifted to add the read write bit)
-refresh = 10			#	Sets the time between sending data to the LED display
+refresh = 120			#	Sets the time between sending data to the LED display
 
 global bus
 ### 	I think I can send this to the ATMEL directly	###
