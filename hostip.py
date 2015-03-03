@@ -47,4 +47,4 @@ while True:
 	
 	bus.write_i2c_block_data(i2caddr, MSO, ip_values)
 
-	time.sleep(5)	# 5s delay before getting the first IP addr to prevent a race condition.
+	time.sleep(refresh)
