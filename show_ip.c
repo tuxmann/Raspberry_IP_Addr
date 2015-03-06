@@ -34,7 +34,7 @@
  *
 ******************************************/
 
-#define F_CPU 2000000UL
+#define F_CPU 1000000UL
 // 13.8s for two IP loops at 1000000
 
 #include <avr/io.h>
@@ -92,7 +92,7 @@ int main()
 	while(1)
 	{
 		PORTB = 0xFF;
-		_delay_ms(4000);
+		_delay_ms(2000);
 		int count1 = 0;
 		int i;		
 		for (count1 = 0; count1 <4; count1++)
@@ -101,7 +101,7 @@ int main()
 			_delay_ms(900);
 			ip_to_led( ipaddr[count1] );
 			// ip_to_led ( i2c_value );
-			for (i =8000; i > 1; i--)
+			for (i =4000; i > 1; i--)
 			{
 				PORTB = led1;
 				PORTD = LEFT;
