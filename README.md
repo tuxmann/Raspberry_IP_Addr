@@ -1,6 +1,7 @@
 # Raspberry_IP_Addr
 
 ### Click on Releases to view all of the Binaries including documents
+https://github.com/tuxmann/Raspberry_IP_Addr/releases
 
 The Pi IP Address board makes it easier to know the IP Address of your Raspberry Pi when it's connected to a
 network. This board is compatible with all Raspberry Pi computers as well as other single board computers that
