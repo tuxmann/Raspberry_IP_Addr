@@ -26,16 +26,7 @@
 // Flashing command on the RPi
 // sudo avrdude -c linuxspi -p t88 -P /dev/spidev0.0 -U flash:w:show_ip.hex 
 
-/******************************************
- * 
- * Have the text on the IP addr scroll across
- * rather than having it change all 3 digits
- * at once.
- *
-******************************************/
-
 #define F_CPU 1000000UL
-// 13.8s for two IP loops at 1000000
 
 #include <avr/io.h>
 #include <util/twi.h>
