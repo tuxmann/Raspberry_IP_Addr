@@ -57,7 +57,7 @@ while True:
 	# Also use np.int to change type of data to an integer before sending.
 	MSO = np.int(dword_integer / 16777216)				#	Most Significant Octet
 	SMSO = np.int((dword_integer % 16777216) / 65536)		#	Second Most Significant Octet
-	SLSO = np.int(((dword_integer % 16777216) % 65536) / 256)	#	Second Most Significant Octect
+	SLSO = np.int(((dword_integer % 16777216) % 65536) / 256)	#	Second Least Significant Octect
 	LSO = np.int(((dword_integer % 16777216) % 65536) % 256)	#	Least Significant Octet
 		
 	# Display separated octets for debugging.
