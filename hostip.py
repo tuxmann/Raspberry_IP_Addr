@@ -31,7 +31,6 @@ import commands
 global bus, port_number
 
 i2caddr = 0x5A		# Address must correspond with shop_ip.c's address #7 bit address (will be left shifted to add the read write bit)
-port_number = 42	# What's the meaning of life?
 refresh = 120		# Sets the time between sending data to the LED display
 
 
@@ -72,7 +71,7 @@ elif check_port2 == '':
 if port_number == 42:
 	print "\033[1;31;40m Pi IP Address board not detected. Please ensure board is properly attached."
 	print ""
-	port_number = 0
+	quit()
 
 bus = smbus.SMBus(port_number)	# 0 = /dev/i2c-0 (port I2C0), 1 = /dev/i2c-1 (port I2C1)
 
