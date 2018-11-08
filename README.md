@@ -1,10 +1,8 @@
 # Raspberry_IP_Addr
 
-![Image of IP_Addr]
-(https://github.com/tuxmann/Raspberry_IP_Addr/blob/master/images/IMG_1232-sm.JPG)
+![Image of IP_Addr](https://github.com/tuxmann/Raspberry_IP_Addr/blob/master/images/IMG_1232-sm.JPG)
 
-![Image of IP_Addr side]
-(https://github.com/tuxmann/Raspberry_IP_Addr/blob/master/images/IMG_1226-sm.JPG)
+![Image of IP_Addr side](https://github.com/tuxmann/Raspberry_IP_Addr/blob/master/images/IMG_1226-sm.JPG)
 
 ### Click on Releases to view all of the Binaries including documents
 https://github.com/tuxmann/Raspberry_IP_Addr/releases
