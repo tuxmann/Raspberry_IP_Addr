@@ -45,7 +45,7 @@ Sensor is polled **once every 5 seconds** (DHT22 needs quiet time between reads)
 
 ## DHT driver
 
-Bit timing is ported from **Adafruit’s DHT_sensor_library** (vendored under `climate-node-dht22/DHT_sensor_library/`). The AVR driver is in `src/dht22.c` (cycle-count pulse compare, same algorithm as `DHT.cpp`).
+Bit timing is ported from **[Adafruit DHT-sensor-library](https://github.com/adafruit/DHT-sensor-library)** (`DHT.cpp`). The AVR driver is in `src/dht22.c` (cycle-count pulse compare, same algorithm).
 
 ## Build and flash
 

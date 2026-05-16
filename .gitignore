@@ -5,6 +5,11 @@ bin/*.elf
 *.elf
 climate-node-dht22/bin/
 
+# KiCad / editor backups
+*.bak
+*-bak
+*.kicad_pcb-bak
+
 # Python
 __pycache__/
 *.pyc

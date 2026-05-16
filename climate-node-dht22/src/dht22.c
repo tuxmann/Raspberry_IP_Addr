@@ -1,8 +1,8 @@
 /*
  * DHT22 driver for ATtiny88 (PC0 / P3 pin 1).
  *
- * Read algorithm ported from Adafruit DHT_sensor_library (DHT.cpp):
- *   climate-node-dht22/DHT_sensor_library/
+ * Read algorithm ported from Adafruit DHT-sensor-library (DHT.cpp):
+ *   https://github.com/adafruit/DHT-sensor-library
  * Uses relative low/high cycle counts per bit instead of a fixed us threshold.
  */
 

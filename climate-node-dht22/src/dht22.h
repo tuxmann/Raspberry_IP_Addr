@@ -2,7 +2,7 @@
 #define DHT22_H
 
 /*
- * AVR DHT22 driver; bit timing matches Adafruit DHT_sensor_library (DHT.cpp).
+ * AVR DHT22 driver; bit timing matches Adafruit DHT-sensor-library (DHT.cpp).
  */
 
 #include <stdint.h>

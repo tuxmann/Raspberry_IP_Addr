@@ -11,7 +11,7 @@ Standalone **ATtiny88** firmware for the Raspberry Pi IP Address board: read a *
 | DHT22 data pin | **PC0** — P3 pin 1 (U1 pin 23) |
 | Sample interval | 5 seconds (one bus transaction) |
 | Build output | `bin/climate_node.hex` |
-| DHT algorithm | Ported from `DHT_sensor_library/DHT.cpp` (Adafruit) |
+| DHT algorithm | Ported from [Adafruit DHT-sensor-library](https://github.com/adafruit/DHT-sensor-library) `DHT.cpp` |
 
 ## Wiring
 
@@ -40,8 +40,7 @@ Slower ISP if needed: see [docs/CLIMATE_NODE.md](../docs/CLIMATE_NODE.md).
 | `src/main.c` | Display multiplexing, 5 s schedule, temp/humidity formatting |
 | `src/dht22.c` | DHT22 single-wire read (Adafruit-style timing) |
 | `src/dht22.h` | Reading struct and API |
-| `DHT_sensor_library/` | Reference Adafruit library (Arduino); logic ported in `dht22.c` |
 
-## License
+## Third-party credit
 
-Project firmware follows the same GPL terms as the parent repository. `DHT_sensor_library/` is MIT (Adafruit)—see `DHT_sensor_library/license.txt`.
+DHT22 timing logic in `src/dht22.c` is derived from Adafruit’s **DHT-sensor-library** (MIT). See [github.com/adafruit/DHT-sensor-library](https://github.com/adafruit/DHT-sensor-library).
