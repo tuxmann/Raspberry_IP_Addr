@@ -1,5 +1,5 @@
 // Raw Source code for the ATtiny88
-// Divide by 8 clock fuse needs to be turned off.
+// Clock: F_CPU in Makefile must match chip. Default 8MHz (CKDIV8 fuse off).
 /*
  * show_ip.c
  * Version 1.1
@@ -25,8 +25,8 @@
  * 
  */
 
-// Flashing command on the RPi
-// sudo avrdude -c linuxspi -p t88 -P /dev/spidev0.0 -U flash:w:show_ip.hex 
+// Flashing command on the RPi (enable SPI in raspi-config first):
+// avrdude -c linuxspi -p t88 -P /dev/spidev0.0:/dev/gpiochip0 -B 10 -U flash:w:show_ip.hex 
 
 /*
  * The ELT-316 is a 3-digit 7-segment common annode display. In order to
@@ -44,7 +44,14 @@
  * 	
  */
 
-#define F_CPU 2000000UL
+/* F_CPU must match your chip's actual clock. ATtiny88 internal oscillator:
+ * - CKDIV8 ON (default): 1 MHz -> F_CPU=1000000
+ * - CKDIV8 OFF: 8 MHz -> F_CPU=8000000
+ * If scroll is too fast, F_CPU is too low (e.g. chip at 8MHz but F_CPU=2000000).
+ * If scroll is too slow, F_CPU is too high. */
+#ifndef F_CPU
+#define F_CPU 8000000UL
+#endif
 
 #include <avr/io.h>
 #include <util/twi.h>
@@ -67,22 +74,32 @@
 #define RIGHT	0x20	// Right  7-segment digit
 #define ADDR	0x5A	// I2C or TWI address for the Pi IP board.
 
-#define pwr_word_count 8
-#define time_out_count 8
+/* Scroll speed: ms to hold each character step. Lower = faster.
+ * With ~35 steps, 150ms => ~5 sec full scroll. Rebuild and reflash after changing. */
+#define SCROLL_MS_PER_STEP  333
+
+#define SCROLL_MSG_LEN 48   /* max length of power-on/timeout scroll message */
+#define IP_STR_LEN 28      /* eth/wlan + IP with merged decimals + leading/trailing spaces */
 
 //global variables
-char *pwr_on_msg[pwr_word_count]  = {"rPI"," IP"," by","JAY","vEr"," 1.1","gPL"," 3 "};
-char *timeout_msg[time_out_count] = {"rPI.","y_U"," no","get"," IP","Adr","For","uSr"};
-char **message;		// Point of a pointer.
+const char *pwr_on_msg   = "rPI IP by JAY vEr 1.1 gPL 3";
+const char *timeout_msg  = "rPI. Y you no get IP Adr For uSr";
+char *message;            /* points to pwr_on_msg or timeout_msg */
 char charLED[3];
+
+/* Scroll buffers: power-on message and IP (eth/wlan + digits, decimals merged into digits) */
+uint8_t scroll_pwr_segments[SCROLL_MSG_LEN];  /* power-on: 7-seg values, '.' merged into prev char */
+uint8_t scroll_pwr_len;
+uint8_t ip_segments[IP_STR_LEN];  /* precomputed 7-seg values (DP merged into digit before dot) */
+uint8_t ip_seg_len;
 
 // I2C variables
 #define BUFLEN_RECV 12
 volatile uint8_t ip_received = 0;         					// flag for I2C transaction started
 volatile uint8_t ip_count = 0;
 volatile uint8_t recv[BUFLEN_RECV]; 						//buffer to store received bytes
-uint8_t led1, led2, led3;
 volatile uint8_t ipaddr[4];
+volatile uint8_t interface_type = 0;  /* 0 = eth, 1 = wlan */
 uint8_t led1, led2, led3, length;
 
 #define BUFLEN_TRAN 3
@@ -92,9 +109,14 @@ volatile uint8_t reset=0;					//variable to indicate if something went horribly 
 
  //prototypes
 int ip_to_led (	uint8_t IPvar );
-int str_to_led ();
 int hex_to_segment ( uint8_t hex_value );
 int letter_to_segment ( char letter_value );
+void build_pwr_scroll_string(void);
+void build_ip_scroll_string(void);
+void scroll_to_led(const char *str, uint8_t len, uint8_t pos);
+void scroll_segments_to_led(const uint8_t *seg, uint8_t len, uint8_t pos);
+void display_scroll_frame(uint16_t cycles);
+void scroll_step_delay(uint16_t ms_total);
 
 //---------------MAIN---------------------------------------------
 int main()
@@ -108,79 +130,47 @@ int main()
 	sei();					// Enable Global Interrupts
 
 	/* Power On & Timeout Display Message */
-	message = pwr_on_msg;	// Set "message" as the power on message.
+	message = (char *)pwr_on_msg;
 	while(1)
 	{
+		uint8_t scroll_pos;
 		int timeout;
-		int count;
-		int i;
-		
+
 		for (timeout = 20; timeout > 0; timeout--)
 		{
-			if (ip_received == 1)	// If the IP address is received it 
-			{			// will begin displaying the IP addr
-				break;			// Break out of pwr_on_msg loop
-			}
-			
-			for (count = 0; count < pwr_word_count; count++) 
+			if (ip_received == 1)
+				break;
+
+			build_pwr_scroll_string();
+			for (scroll_pos = 0; scroll_pos < scroll_pwr_len; scroll_pos++)
 			{
-				PORTB = 0xFF;			// Blank the display in
-				_delay_ms(900);			// between numbers
-				str_to_led( count ); 		// Convert the string into three 7-seg digits
-				for (i =2000; i > 1; i--)	// Cycle through the LED digits
-				{
-					PORTB = (charLED[0]);
-					PORTD = LEFT;
-					_delay_ms(1);
-				
-					PORTB = (charLED[1]);
-					PORTD = MIDDLE;
-					_delay_ms(1);
-				
-					PORTB = (charLED[2]);
-					PORTD = RIGHT;
-					_delay_ms(1);
-				}
+				if (ip_received == 1)
+					break;
+				scroll_segments_to_led(scroll_pwr_segments, scroll_pwr_len, scroll_pos);
+				scroll_step_delay(SCROLL_MS_PER_STEP);
 			}
-		}		// At the end of 20 loops, if no IP address is sent, fall through
-	
-		message = timeout_msg;	// Set "message" as the timeout message.
-	
-		if (ip_received == 1)	// If the IP address is received it 
-		{			// we avoid the timeout loop below and 
-		break;			// break out of the while loop.
 		}
+
+		message = (char *)timeout_msg;
+
+		if (ip_received == 1)
+			break;
 	}
 	/* End Power On & Timeout Display Message */
 
-	// Main program to cycle through IP Addr Octets.
+	// Main program: scroll IP address (eth/wlan + digits) across the display.
+	build_ip_scroll_string();
 	while(1)
 	{
-		PORTB = 0xFF;			// Blank the display
-		_delay_ms(4000);		// for about 0.5 seconds.
-		int count1 = 0;
-		int i;		
-		for (count1 = 0; count1 <4; count1++)
+		uint8_t scroll_pos;
+
+		for (scroll_pos = 0; scroll_pos < ip_seg_len; scroll_pos++)
 		{
-			PORTB = 0xFF;			// Blank the display in
-			_delay_ms(900);			// between numbers
-			ip_to_led( ipaddr[count1] );	// Convert the current octet
-			// ip_to_led ( i2c_value );
-			for (i =2000; i > 1; i--)	// Cycle through the LED digits
-			{
-				PORTB = led1;
-				PORTD = LEFT;
-				_delay_ms(1);
-			
-				PORTB = led2;
-				PORTD = MIDDLE;
-				_delay_ms(1);
-			
-				PORTB = led3;
-				PORTD = RIGHT;
-				_delay_ms(1);
-			}
-		};
+			scroll_segments_to_led(ip_segments, ip_seg_len, scroll_pos);
+			scroll_step_delay(SCROLL_MS_PER_STEP);
+		}
+		PORTB = 0xFF;
+		_delay_ms(800);
 	}
 }
 //-----------END MAIN---------------------------------------------
@@ -203,11 +193,14 @@ ISR(TWI_vect)
 		case 0x80:  	//a byte was received, store it and 
 			for (i =10; i > 1; i--)			
 			//setup the buffer to recieve another
-			ipaddr[ip_count] = TWDR;
+			if (ip_count == 0) {
+				interface_type = TWDR;  /* 0 = eth, 1 = wlan */
+			} else {
+				ipaddr[ip_count - 1] = TWDR;
+			}
 			ip_count++;
-			//i2c_value = TWDR;
-			//don't ack next data if buffer is full
-			if(ip_count >= BUFLEN_RECV)
+			//don't ack next data if buffer is full (need 5 bytes: interface + 4 octets)
+			if(ip_count >= 5)
 			{
 				TWNACK;
 			}
@@ -278,41 +271,148 @@ ISR(TWI_vect)
 	}
 }
 
-/* -----CHANGE STRINGS INTO LED VALUES-----------------------
-		
--------------------------------------------------------------*/
-int str_to_led (word_count)
+// ----------------------------------------------------------
+// Build power-on scroll as segment buffer. Any '.' immediately after a
+// letter or digit is merged into that character (DP set); standalone '.' -> 0x7F.
+// ----------------------------------------------------------
+void build_pwr_scroll_string(void)
 {
-	length = strlen(message[word_count]);	// See how many characters in a word
-
-	int letter = 1;
-	int digit = 1;
-	int mask_char = 0x00;
-	charLED[0] = letter_to_segment ( message[word_count][0] ); // First char always processed
-	
-	for (letter = 1; letter < length; letter++) // Count starts at 1 for 2nd char in the word
-	{
-		if (message[word_count][letter] == '.')	// Is this char a "."?
-		{
-			mask_char = mask_char & (~ message[word_count][letter-1]); // mask decimal point of previous char
-			if ( mask_char != 0x80)		// Does the previous char have no decimal point?
-			{
-				charLED[digit-1] = charLED[digit-1] & 0x7F; // Add a decimal point to the previous char
+	uint8_t i, k;
+	uint8_t seg;
+	const char *msg = message;
+	if (!msg) {
+		scroll_pwr_len = 0;
+		return;
+	}
+	k = 0;
+	scroll_pwr_segments[k++] = 0xFF;
+	scroll_pwr_segments[k++] = 0xFF;
+	scroll_pwr_segments[k++] = 0xFF;
+	for (i = 0; msg[i] != '\0' && k < SCROLL_MSG_LEN - 3; ) {
+		if (msg[i] == '.') {
+			scroll_pwr_segments[k++] = 0x7F;  /* standalone decimal point */
+			i++;
+		} else {
+			seg = (uint8_t)letter_to_segment(msg[i]);
+			if (msg[i + 1] == '.') {
+				seg &= 0x7F;  /* merge period into this letter/digit */
+				i += 2;
+			} else {
+				i++;
 			}
-		}
-
-		else 	// Convert the letter to the proper 7-segment hex value
-		{
-			charLED[digit] = letter_to_segment ( message[word_count][letter] );
-			digit++;	// move to the next 7-seg digit
-			mask_char = 0x00;	// Reset the mask char
+			scroll_pwr_segments[k++] = seg;
 		}
 	}
-	return 0;
+	scroll_pwr_segments[k++] = 0xFF;
+	scroll_pwr_segments[k++] = 0xFF;
+	scroll_pwr_segments[k++] = 0xFF;
+	scroll_pwr_len = k;
 }
 
 // ----------------------------------------------------------
-//		CHANGE EACH OCTET TO LED VALUES
+// Build IP scroll as segment buffer: "   eth" or "   wlan" then digits with
+// decimal point merged into the previous digit (no space between number and dot).
+// ----------------------------------------------------------
+void build_ip_scroll_string(void)
+{
+	uint8_t k = 0;
+	uint8_t o, seg;
+	const char *iface = (interface_type == 1) ? "wlan" : "eth";
+
+	ip_segments[k++] = 0xFF;
+	ip_segments[k++] = 0xFF;
+	ip_segments[k++] = 0xFF;
+	for (o = 0; iface[o] != '\0' && k < IP_STR_LEN - 1; o++)
+		ip_segments[k++] = letter_to_segment(iface[o]);
+	for (o = 0; o < 4 && k < IP_STR_LEN - 6; o++) {
+		uint8_t n = ipaddr[o];
+		if (n >= 100) {
+			ip_segments[k++] = hex_to_segment(n / 100);
+			ip_segments[k++] = hex_to_segment((n / 10) % 10);
+			seg = hex_to_segment(n % 10);
+			if (o < 3) seg &= 0x7F;  /* decimal point after this digit */
+			ip_segments[k++] = seg;
+		} else if (n >= 10) {
+			ip_segments[k++] = hex_to_segment(n / 10);
+			seg = hex_to_segment(n % 10);
+			if (o < 3) seg &= 0x7F;
+			ip_segments[k++] = seg;
+		} else {
+			seg = hex_to_segment(n);
+			if (o < 3) seg &= 0x7F;
+			ip_segments[k++] = seg;
+		}
+	}
+	ip_segments[k++] = 0xFF;
+	ip_segments[k++] = 0xFF;
+	ip_segments[k++] = 0xFF;
+	ip_seg_len = k;
+}
+
+// ----------------------------------------------------------
+// Set charLED[0..2] from 3-character window at position pos in string (wraps)
+// ----------------------------------------------------------
+void scroll_to_led(const char *str, uint8_t len, uint8_t pos)
+{
+	uint8_t i;
+	if (len == 0) {
+		charLED[0] = charLED[1] = charLED[2] = 0xFF;
+		return;
+	}
+	for (i = 0; i < 3; i++)
+		charLED[i] = letter_to_segment(str[(pos + i) % len]);
+}
+
+// ----------------------------------------------------------
+// Set charLED[0..2] from 3 segment values at position pos (for IP with merged decimals)
+// ----------------------------------------------------------
+void scroll_segments_to_led(const uint8_t *seg, uint8_t len, uint8_t pos)
+{
+	uint8_t i;
+	if (len == 0) {
+		charLED[0] = charLED[1] = charLED[2] = 0xFF;
+		return;
+	}
+	for (i = 0; i < 3; i++)
+		charLED[i] = seg[(pos + i) % len];
+}
+
+// ----------------------------------------------------------
+// Multiplex the current charLED[] for a number of cycles (1 cycle = 3 digits)
+// ----------------------------------------------------------
+void display_scroll_frame(uint16_t cycles)
+{
+	uint16_t i;
+	for (i = cycles; i > 0; i--) {
+		PORTB = (charLED[0]);
+		PORTD = LEFT;
+		_delay_ms(1);
+		PORTB = (charLED[1]);
+		PORTD = MIDDLE;
+		_delay_ms(1);
+		PORTB = (charLED[2]);
+		PORTD = RIGHT;
+		_delay_ms(1);
+	}
+}
+
+// ----------------------------------------------------------
+// Hold current scroll position for exactly ms_total ms. One knob for scroll speed.
+// (Multiplexing takes 3ms per cycle; remainder is a delay.)
+// ----------------------------------------------------------
+void scroll_step_delay(uint16_t ms_total)
+{
+	uint16_t cycles = ms_total / 3;
+	if (cycles == 0) cycles = 1;
+	display_scroll_frame(cycles);
+	{
+		uint16_t remainder = ms_total - (cycles * 3);
+		while (remainder > 0) {
+			_delay_ms(1);
+			remainder--;
+		}
+	}
+}
 // ----------------------------------------------------------
 int ip_to_led ( uint8_t IPvar )
 {
@@ -384,6 +484,7 @@ int letter_to_segment ( char letter_value )
 		case 'T': letter_value = 0x87; break;		case 't': letter_value = 0x87; break;
 		case 'U': letter_value = 0xC1; break;		case 'u': letter_value = 0xE3; break;
 		case 'V': letter_value = 0xC1; break;		case 'v': letter_value = 0xE3; break;
+		case 'W': letter_value = 0x8A; break;		case 'w': letter_value = 0x8A; break;
 		case 'Y': letter_value = 0x91; break;		case 'y': letter_value = 0x91; break;
 		case '0': letter_value = 0xC0; break;		case '5': letter_value = 0x92; break;
 		case '1': letter_value = 0xF9; break;		case '6': letter_value = 0x82; break;
@@ -400,6 +501,5 @@ int letter_to_segment ( char letter_value )
 /*/////  TODO LIST  /////
 -----------------------
 2. Include temperature display (CPU Temp or other)
-3. Make optional text scrolling across the digits
-4. Include CPU load, RAM usage, etc.
+3. Include CPU load, RAM usage, etc.
 */

@@ -1,0 +1,9 @@
+ERC report (Sat 20 Dec 2014 08:20:43 PM MST)
+
+***** Sheet /
+ErrType(3): Pin connected to some others pins but no pin to drive it
+    @ (38.10 mm,115.57 mm): Pin 18 (power_in) of component U1 is not driven (Net 36).
+ErrType(3): Pin connected to some others pins but no pin to drive it
+    @ (38.10 mm,180.34 mm): Pin 5 (power_in) of component U1 is not driven (Net 37).
+
+ >> Errors ERC: 0

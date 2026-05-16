@@ -1,0 +1,36 @@
+Additional ideas that the daughter board can be used for.
+
+Scrolling message — Reuse your power-on style messages; Pi sends which message index to show.
+CPU load — Average load × 100 (e.g. 125 = 1.25) or “Idl” when idle.
+RAM usage — Percent used (e.g. 67) or free MB.
+CPU temperature — Pi sends CPU temp (e.g. 45, 52) over I2C; display shows “C45” or “52.” with decimal.
+Disk usage — Root filesystem percent full (e.g. 42).
+Wi‑Fi signal — RSSI as a number (e.g. -65 → “65” or “-65” if you allow minus).
+Simple notifications — “Err”, “Ok”, “Run”, “Stp”, “Net”, “IP” for scripts or services.
+Speedtest result — Download Mbps as 3 digits (e.g. 125).
+
+
+Pi-hole stats — Queries today as hundreds (e.g. 523) or “dns” / “blk”.
+Uptime — Days (e.g. 007) or hours (e.g. 123).
+Countdown / timer — Pi sends remaining seconds; display counts down (e.g. 599 → 598…).
+Clock — Hours and minutes as 3 digits (e.g. 143 = 1:43) or minutes:seconds.
+Plex/streaming status — “Ply”, “Pau”, “0” when nothing playing.
+VPN status — “On” / “Off” or tunnel number.
+Hex/dec view — Show a value from the Pi in hex (e.g. 0x1A2) or decimal (e.g. 418).
+
+With extra components 
+BME280/DHT — Pi reads sensor, sends temp/humidity to display (e.g. 72° and 45% as “72” / “45” or “725”).
+Button(s) on Port C/D — Cycle display mode (IP / temp / clock / message) or start/stop a timer.
+Rotary encoder — Interrupts on Port D; show value or menu index (e.g. 001, 002).
+Relay/GPIO status — Pi sends which outputs are on; display “1”, “2”, “12” or “On”/“Off”.
+Distance (ultrasonic) — Pi talks to sensor, sends cm; display shows 0–999 cm.
+
+Temperature sensor (e.g. thermistor/ADC) — P3/P4 ADC; ATtiny88 reads voltage, converts to °C/°F, shows on display (or Pi reads over I2C if you add that path).
+Analog voltage monitor — ADC; show battery or supply voltage (e.g. 3.2 V as “3.2” or “320”).
+Current sense — Current-sense amp to ADC; show mA or “0.5A” style reading.
+Light level — LDR on ADC; display brightness level (0–99) or “LOW”/“HIG”.
+Potentiometer — ADC; show 0–100 or use as volume/setpoint and display that.
+PIR motion — Interrupt; show “On” when motion, “Off” or count of events.
+Reed switch / door sensor — Interrupt; “OPn” / “Cld” or simple 0/1.
+RTC (I2C) — Pi or ATtiny88 (if you add RTC on I2C) keeps time; display shows time without NTP when offline.
+Multi-sensor dashboard — Button or timer cycles what’s shown: temp, humidity, light, IP, etc., with one sensor per “extra component” above.

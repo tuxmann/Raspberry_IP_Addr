@@ -1,0 +1,15 @@
+[Unit]
+Description=Raspberry Pi IP Address Display
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=jason
+WorkingDirectory=/home/jason/Raspberry_IP_Addr
+ExecStart=/usr/bin/python3 hostip.py
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

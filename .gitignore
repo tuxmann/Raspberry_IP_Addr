@@ -1,0 +1,15 @@
+# Build artifacts
+bin/*.hex
+bin/*.elf
+*.o
+*.elf
+climate-node-dht22/bin/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Editor / OS
+*~
+.DS_Store

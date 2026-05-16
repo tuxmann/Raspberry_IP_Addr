@@ -1,0 +1,20 @@
+# Raspberry Pi IP Address - Quick Reference
+# See docs/SETUP.md for full guide
+
+# --- Dependencies ---
+sudo apt install python3-smbus i2c-tools avrdude
+# Or: pip install smbus2
+
+# --- Enable interfaces (raspi-config) ---
+# Interface Options → I2C → Enable
+# Interface Options → SPI → Enable
+
+# --- Test avrdude linuxspi ---
+avrdude -c linuxspi -P /dev/spidev0.0:/dev/gpiochip0 -p t88 -B 10 -v
+
+# --- Flash ATtiny88 firmware ---
+avrdude -c linuxspi -P /dev/spidev0.0:/dev/gpiochip0 -p t88 -B 10 \
+        -U flash:w:bin/show_ip.hex:i
+
+# --- Run IP display script ---
+python3 hostip.py

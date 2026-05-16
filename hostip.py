@@ -1,4 +1,4 @@
-#! Python3
+#!/usr/bin/env python3
 # HostIP.py
 #
 # Copyright 2015 Jason <aztuxmann@gmail.com>
@@ -6,7 +6,7 @@
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 3 of the License, or
-# at your option) any later version.
+# (at your option) any later version.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -18,106 +18,125 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 # MA 02110-1301, USA.
 #
-# Requires Python3-smbus to be installed.
-#  sudo apt-get install python3-smbu
-#
+# Dependencies (Raspberry Pi OS):
+#   sudo apt-get install python3-smbus i2c-tools
+# Or use smbus2 (pip): pip install smbus2
 
+import subprocess
+import time
 
+try:
+    from smbus2 import SMBus
+except ImportError:
+    from smbus import SMBus
 
-import os, re, smbus, subprocess, time
-import numpy as np
-
-global bus, port_number
-
-i2caddr = "5A"		# i2caddr must match shop_ip.c's address #7 bit address (will be left shifted to add the read write bit)
+i2caddr = "5A"		# Must match show_ip.c ADDR (0x5A); 7-bit I2C address
 refresh = 120		# Sets the time between sending data to the LED display
 
 
 # Changes the IP addr to a 32-bit integer.
-def ip_to_dword():
+def get_primary_ip_and_interface():
+	"""Get primary IP address, its interface (eth/wlan), and convert IP to 32-bit integer for I2C."""
+	# Default interface from default route (e.g. eth0 or wlan0)
+	result = subprocess.run(
+		["ip", "route", "show", "default"],
+		capture_output=True,
+		text=True,
+		check=False,
+	)
+	interface = "eth0"
+	if result.returncode == 0 and result.stdout.strip():
+		# "default via 192.168.1.1 dev eth0 ..." or "... dev wlan0 ..."
+		parts = result.stdout.strip().split()
+		for i, p in enumerate(parts):
+			if p == "dev" and i + 1 < len(parts):
+				interface = parts[i + 1]
+				break
+	# Primary IP on that interface
+	result = subprocess.run(
+		["ip", "-4", "addr", "show", interface],
+		capture_output=True,
+		text=True,
+		check=False,
+	)
+	ip_addr = ""
+	if result.returncode == 0 and "inet " in result.stdout:
+		# "inet 192.168.1.5/24 ..."
+		for line in result.stdout.splitlines():
+			if "inet " in line:
+				ip_addr = line.strip().split()[1].split("/")[0]
+				break
+	if not ip_addr:
+		# Fallback: hostname --all-ip-addresses (first address)
+		result = subprocess.run(
+			["hostname", "--all-ip-addresses"],
+			capture_output=True,
+			text=True,
+			check=False,
+		)
+		ip_addr = result.stdout.strip().split()[0] if result.stdout else ""
+	print(ip_addr, interface)
 
-	#ip_addr = commands.getoutput("/sbin/ifconfig | grep Bcast")
-	ip_addr =  str(subprocess.check_output(["hostname", "--all-ip-addresses"]))
-	ip_addr = ip_addr[2:-4]
-	print (ip_addr)
+	if not ip_addr:
+		return 0xFF00FF00, 0  # no IP; report as eth
 
-	if not ip_addr: 	# Let the user know that we don't see an IP address
-		return int(4278255360)	# Returns 255.0.255.0
-	
-	else:	# Let the user know that we see an IP address
-		# The line below takes the output of the terminal command, segregates the 
-		# IP address, and then removes the dots to create a list.
-		ip_addr = ip_addr.split(".")
-		return int("%02x%02x%02x%02x" % (int(ip_addr[0]),int(ip_addr[1]),int(ip_addr[2]),int(ip_addr[3])),16)
+	octets = ip_addr.split(".")
+	if len(octets) != 4:
+		return 0xFF00FF00, 0
+
+	dword = int("%02x%02x%02x%02x" % (
+		int(octets[0]), int(octets[1]), int(octets[2]), int(octets[3])
+	), 16)
+	# 0 = eth, 1 = wlan
+	iface_byte = 1 if interface.startswith("wlan") else 0
+	return dword, iface_byte
 
 # Check to see which I2C port the Pi IP Adress board is attached to.
 # Doing this makes the script more compatible with the Orange Pi, Old 
 # Raspberry Pi, Newer Raspberry Pis, Banana Pi, Odroid and other 
 # pin compatible SBCs.
 
-# Get the first string for each command. The result should yield "error" 
-# or nothing. We want to see nothing as the returned value.
-port_number = 42
-for i in range(3):
+# Detect which I2C bus has the Pi IP Address board (0x5A)
+port_number = None
+for bus_num in range(3):
 	try:
-		print ("Trying " + str(i))
-		port_number = str(subprocess.check_output(["i2cdetect", "-y", str(i)])).split("\\n")
-	except:
-		print ("Failed" + str(i))
-		continue
-	
-	count = 0
-	for line in port_number:
-		print ("Looking through lines")
-		if count == 0:
-			count +=1
+		result = subprocess.run(
+			["/usr/sbin/i2cdetect", "-y", str(bus_num)],
+			capture_output=True,
+			text=True,
+			timeout=5,
+		)
+		if result.returncode != 0:
 			continue
-		if i2caddr in line.upper():
-			port_number = i
-			print (port_number)
+		if i2caddr.lower() in result.stdout.lower():
+			port_number = bus_num
+			print(f"Found board at I2C address 0x{i2caddr} on bus {bus_num}")
 			break
-		else: continue
-	# This happens if we don't find the board attached at the address expected.
-	if port_number == 42:
-		print ("\033[1;31;40m Pi IP Address board not detected. Please ensure board is properly attached.")
-		print ("")
-		quit()
-	break
+	except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
+		print(f"Bus {bus_num}: {e}")
+		continue
 
- 
-#check_port0 = commands.getoutput("i2cdetect -y 0").split(" ")[0]
-#check_port1 = commands.getoutput("i2cdetect -y 1").split(" ")[0]
-#check_port2 = commands.getoutput("i2cdetect -y 2").split(" ")[0]
+if port_number is None:
+	print("\033[1;31mPi IP Address board not detected. Ensure board is attached and I2C is enabled.")
+	print("Run: sudo raspi-config → Interface Options → I2C → Enable\033[0m")
+	raise SystemExit(1)
 
-#if check_port0 == '':
-#	check_port0 = commands.getoutput("i2cdetect -y 0").split(" ")[137]	# Checking to see if 5a is detected on port zero
-#	if check_port0 == '5a':
-#		port_number = 0
-
-bus = smbus.SMBus(port_number)	# 0 = /dev/i2c-0 (port I2C0), 1 = /dev/i2c-1 (port I2C1)
+bus = SMBus(port_number)
 
 while True:
-	bus = smbus.SMBus(port_number)	# 0 = /dev/i2c-0 (port I2C0), 1 = /dev/i2c-1 (port I2C1)
-	dword_integer = ip_to_dword()
-	
-	# Separate the 32-bit integer into 8 bit integers.
-	# Also use np.int to change type of data to an integer before sending.
-	MSO = np.int(dword_integer / 16777216)				#	Most Significant Octet
-	SMSO = np.int((dword_integer % 16777216) / 65536)		#	Second Most Significant Octet
-	SLSO = np.int(((dword_integer % 16777216) % 65536) / 256)	#	Second Least Significant Octect
-	LSO = np.int(((dword_integer % 16777216) % 65536) % 256)	#	Least Significant Octet
-		
-	# Display separated octets for debugging.
-	# print MSO
-	# print SMSO
-	# print TMSO
-	# print LMSO
-	
-###	This portion takes the IP address and sends it to the add-on board	###
-	
-	# This is kind of rube goldberg-ish because the MSO in the "char cmd" or register parameter.
-	ip_values = [SMSO, SLSO, LSO]
-	
-	bus.write_i2c_block_data(int(i2caddr, 16), MSO, ip_values)
+	bus = SMBus(port_number)
+	dword_integer, iface_byte = get_primary_ip_and_interface()
+
+	# Separate the 32-bit integer into 8-bit octets for I2C transmission
+	MSO = (dword_integer >> 24) & 0xFF   # Most Significant Octet
+	SMSO = (dword_integer >> 16) & 0xFF  # Second Most Significant Octet
+	SLSO = (dword_integer >> 8) & 0xFF   # Second Least Significant Octet
+	LSO = dword_integer & 0xFF           # Least Significant Octet
+
+	# Send 5 bytes: interface (0=eth, 1=wlan) then 4 IP octets.
+	# write_i2c_block_data sends: addr, register_byte, [data...]
+	# So register = iface_byte, data = [MSO, SMSO, SLSO, LSO]
+	ip_values = [MSO, SMSO, SLSO, LSO]
+	bus.write_i2c_block_data(int(i2caddr, 16), iface_byte, ip_values)
 
 	time.sleep(refresh)
