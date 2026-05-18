@@ -29,8 +29,8 @@ To **flash** firmware, stack the board on a Raspberry Pi with **SPI enabled** an
 | Phase | Display | Duration |
 |-------|---------|----------|
 | Power-up | `rdy` | 2 s |
-| Each 5 s cycle | Temperature (°F), then humidity | 2.5 s each |
-| Read failed | `Err` | Until next good read |
+| Each 6 s cycle | Temperature (°F), then humidity | 3 s each |
+| Read failed (including disconnected sensor) | `Err` | Until next good read; replaces last values on screen |
 
 **Temperature (°F)**
 
@@ -41,7 +41,7 @@ To **flash** firmware, stack the board on a Raspberry Pi with **SPI enabled** an
 
 - `H` + two digits (e.g. `H38` for 38%)
 
-Sensor is polled **once every 5 seconds** (DHT22 needs quiet time between reads).
+Sensor is polled **once every 6 seconds** (`SAMPLE_PERIOD_MS` in `src/main.c`). Temperature and humidity each stay on screen for **3 seconds** (`SHOW_TEMP_MS`). DHT22 needs quiet time between reads; do not poll faster than about every 2 s.
 
 ## DHT driver
 
@@ -95,11 +95,11 @@ Or from repo root: `./deploy-to-pi.sh` (syncs the whole tree, including `climate
 
 | Symptom | Things to check |
 |---------|------------------|
-| `Err` on display | Data on **P3 pin 1**, pull-up, common GND, 5 s between reads; reflash latest hex |
+| `Err` on display | Data on **P3 pin 1**, pull-up, common GND; failed read shows within ~6 s; reflash latest hex |
 | `rdy` forever | No successful read yet; wiring, power, sensor type (DHT22 not DHT11) |
 | Wrong values | `F_CPU` in Makefile must match ATtiny fuse clock (default **8 MHz**) |
 | avrdude no response | Board on Pi header, SPI on, reset not grounded; try `-B 125kHz` or `-B 50kHz` |
-| Scope shows frequent DHT starts | Old firmware with retry bursts; use current build (one read per 5 s) |
+| Scope shows frequent DHT starts | Old firmware with retry bursts; use current build (one read per 6 s) |
 
 ## Related docs
 

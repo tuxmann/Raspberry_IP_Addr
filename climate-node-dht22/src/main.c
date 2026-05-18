@@ -14,11 +14,11 @@
 #define RIGHT   0x20
 
 /*
- * DHT22: wait at least 2 s between reads; we use 5 s.
+ * DHT22: wait at least 2 s between reads; we use 6 s.
  * One start pulse per period (no rapid retries).
  */
-#define SAMPLE_PERIOD_MS 5000U
-#define SHOW_TEMP_MS     2500U
+#define SAMPLE_PERIOD_MS 6000U
+#define SHOW_TEMP_MS     3000U
 #define STARTUP_DELAY_MS 2000U
 
 /* Segment bytes currently being shown on the 3-digit display. */
@@ -167,14 +167,15 @@ int main(void)
             elapsed_in_cycle = 0U;
         }
 
-        if (have_reading) {
+        /* Show Err on any failed read, even if older values are still stored. */
+        if (last_read_failed) {
+            set_error_display();
+        } else if (have_reading) {
             if (elapsed_in_cycle < SHOW_TEMP_MS) {
                 set_temperature_display(temperature_tenths_c);
             } else {
                 set_humidity_display(humidity_tenths);
             }
-        } else if (last_read_failed) {
-            set_error_display();
         } else {
             set_ready_display();
         }

@@ -35,7 +35,7 @@ The board can run **without a Pi** as a temperature/humidity display using a **D
 - Firmware: [`climate-node-dht22/`](climate-node-dht22/)
 - Setup, wiring, build, and flash: **[docs/CLIMATE_NODE.md](docs/CLIMATE_NODE.md)**
 
-Shows °F (e.g. `78.3`) and humidity (e.g. `H38`), one sensor read every 5 seconds.
+Shows °F (e.g. `78.3`) and humidity (e.g. `H38`), one sensor read every 6 seconds (3 s per value on the display).
 
 ## Documentation
 
