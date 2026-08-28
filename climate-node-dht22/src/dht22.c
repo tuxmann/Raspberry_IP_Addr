@@ -81,6 +81,9 @@ uint8_t dht22_read(dht22_reading_t *out)
 
     data[0] = data[1] = data[2] = data[3] = data[4] = 0;
 
+    sreg = SREG;
+    cli();
+
     /* Begin(): INPUT_PULLUP, short settle. */
     DHT_DDR &= (uint8_t)~DHT_MASK;
     DHT_PORT |= DHT_MASK;
@@ -91,13 +94,10 @@ uint8_t dht22_read(dht22_reading_t *out)
     DHT_PORT &= (uint8_t)~DHT_MASK;
     _delay_us(DHT_START_LOW_US);
 
-    /* Release line, wait for sensor to take over. */
+    /* Release the line, wait for sensor to take over. */
     DHT_DDR &= (uint8_t)~DHT_MASK;
     DHT_PORT |= DHT_MASK;
     _delay_us(DHT_PULLUP_WAIT_US);
-
-    sreg = SREG;
-    cli();
 
     /* ACK: ~80 us low, ~80 us high. */
     if (expect_pulse(0U) == DHT_PULSE_TIMEOUT) {
